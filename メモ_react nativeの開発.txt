@@ -1,0 +1,28 @@
+
+現在は「開発版アプリ」なのでMac上のMetroとの接続が必要です。
+React Nativeの画面・処理を更新する場合
+USB不要。MacとiPhoneを同じWi-Fiに接続し、MacでMetroを起動すれば変更が反映されます。
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+npx expo start --dev-client --lan
+
+
+iphoneでの起動
+（wi-fi接続（usb接続は不要））
+（これをしないと、実機アプリは立ち上がらない）
+（testflightなら単独起動可能（たぶん））
+cd /Users/dev_tomo/workspace/cycling-book-app
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+npx expo start --dev-client --lan
+
+ネイティブ機能を更新する場合
+Expoライブラリ追加、位置情報権限、app.json、iOS設定などを変更した場合は再ビルド・再インストールが必要です。USB接続が最も確実です。
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+npx expo run:ios --device
+
+
+
+
+
+
+
+
