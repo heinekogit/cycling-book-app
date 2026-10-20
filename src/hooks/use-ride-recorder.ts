@@ -1,31 +1,39 @@
 import type { Session } from '@supabase/supabase-js'
 import * as Location from 'expo-location'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { AppState } from 'react-native'
 
 import { RIDE_LOCATION_TASK } from '@/background-location'
 import { ensureRideLocationPermissions, type LocationPermissionIssue } from '@/lib/location-permissions'
 import {
-  encodePolyline,
   elapsedMilliseconds,
   pauseRideDraft,
   restoreRideDraft,
   resumeRideDraft,
   totalDistance,
   type RideDraft,
+  type RidePhotoDraft,
 } from '@/lib/ride'
-import { clearRideDraft, createRideDraft, loadRideDraft, saveRideDraft } from '@/lib/ride-storage'
-import { supabase } from '@/lib/supabase'
+import { appendRidePhoto, clearRideDraft, createRideDraft, loadRideDraft, saveRideDraft } from '@/lib/ride-storage'
+import { useI18n } from '@/i18n'
+import { createPendingRide } from '@/lib/ride-sync-model'
+import { enqueuePendingRide, pendingRideCount, syncPendingRides } from '@/lib/ride-sync'
+import { removeRidePhotoFiles } from '@/lib/ride-photo-capture'
 
 export type RideState = 'ready' | 'locating' | 'riding' | 'paused' | 'finished' | 'saving'
 
-export function useRideRecorder(session: Session | null) {
+export function useRideRecorder(session: Session | null, plan: RideDraft['plan'] = null) {
+  const { t } = useI18n()
+  const userId = session?.user.id
   const [rideState, setRideState] = useState<RideState>('ready')
   const [draft, setDraft] = useState<RideDraft | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [speedKmh, setSpeedKmh] = useState(0)
-  const [message, setMessage] = useState('開始するとバックグラウンド記録を始めます')
+  const [message, setMessage] = useState(() => t('readyMessage'))
   const [hasUnsavedRide, setHasUnsavedRide] = useState(false)
   const [permissionIssue, setPermissionIssue] = useState<LocationPermissionIssue | null>(null)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [isSyncing, setIsSyncing] = useState(false)
 
   const distanceMeters = useMemo(() => totalDistance(draft?.points ?? []), [draft?.points])
 
@@ -34,7 +42,10 @@ export function useRideRecorder(session: Session | null) {
     setElapsedSeconds(Math.floor(elapsedMilliseconds(nextDraft) / 1000))
     const last = nextDraft.points.at(-1)
     const previous = nextDraft.points.at(-2)
-    if (!last || !previous) return
+    if (!last || !previous || Date.now() - last.timestamp > 5_000) {
+      setSpeedKmh(0)
+      return
+    }
     const seconds = (last.timestamp - previous.timestamp) / 1000
     const segmentDistance = totalDistance([previous, last])
     setSpeedKmh(seconds > 0 && seconds < 30 ? segmentDistance / seconds * 3.6 : 0)
@@ -54,10 +65,36 @@ export function useRideRecorder(session: Session | null) {
       applyDraft(restored)
       setHasUnsavedRide(true)
       setRideState(isRunning ? 'riding' : 'paused')
-      setMessage(isRunning ? 'バックグラウンドGPS記録中' : '端末内に未保存の実走記録があります')
+      setMessage(isRunning ? t('recordingMessage') : t('unsavedMessage'))
     })
     return () => { mounted = false }
-  }, [applyDraft])
+  }, [applyDraft, t])
+
+  const syncNow = useCallback(async (showResult = true) => {
+    if (!userId) return
+    setIsSyncing(true)
+    const result = await syncPendingRides(userId)
+    setPendingCount(result.pending)
+    setIsSyncing(false)
+    if (!showResult) return
+    if (result.error) setMessage(t('syncFailed'))
+    else if (result.synced > 0) setMessage(t('syncComplete', { count: result.synced }))
+  }, [t, userId])
+
+  useEffect(() => {
+    if (!userId) return
+    let active = true
+    const refreshAndSync = async () => {
+      const count = await pendingRideCount(userId)
+      if (active) setPendingCount(count)
+      if (count > 0 && active) await syncNow(false)
+    }
+    void refreshAndSync()
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshAndSync()
+    })
+    return () => { active = false; subscription.remove() }
+  }, [syncNow, userId])
 
   useEffect(() => {
     if (!['riding', 'locating'].includes(rideState)) return
@@ -71,7 +108,7 @@ export function useRideRecorder(session: Session | null) {
     }
   }, [])
 
-  const beginBackgroundUpdates = async () => {
+  const beginBackgroundUpdates = useCallback(async () => {
     await Location.startLocationUpdatesAsync(RIDE_LOCATION_TASK, {
       accuracy: Location.Accuracy.BestForNavigation,
       activityType: Location.ActivityType.Fitness,
@@ -82,19 +119,19 @@ export function useRideRecorder(session: Session | null) {
       pausesUpdatesAutomatically: false,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
-        notificationTitle: 'Cycling Bookで走行記録中',
-        notificationBody: 'バックグラウンドで位置情報を記録しています',
+        notificationTitle: t('notificationTitle'),
+        notificationBody: t('notificationBody'),
         killServiceOnDestroy: false,
       },
     })
-  }
+  }, [t])
 
   const start = useCallback(async (discardExisting = false) => {
     setRideState('locating')
     setPermissionIssue(null)
-    setMessage('位置情報の許可を確認しています…')
+    setMessage(t('checkingPermission'))
     try {
-      const permission = await ensureRideLocationPermissions()
+      const permission = await ensureRideLocationPermissions(t)
       if (!permission.granted) {
         setPermissionIssue(permission.issue)
         setMessage(permission.message)
@@ -103,21 +140,23 @@ export function useRideRecorder(session: Session | null) {
       }
       if (discardExisting) {
         await stopUpdates()
+        const discarded = await loadRideDraft()
         await clearRideDraft()
+        await removeRidePhotoFiles(discarded?.photos)
       }
       const stored = discardExisting ? null : await loadRideDraft()
-      const nextDraft = stored ? resumeRideDraft(stored) : createRideDraft()
+      const nextDraft = stored ? resumeRideDraft(stored) : createRideDraft(plan)
       await saveRideDraft(nextDraft)
       applyDraft(nextDraft)
       setHasUnsavedRide(true)
       await beginBackgroundUpdates()
       setRideState('riding')
-      setMessage('バックグラウンドGPS記録中')
+      setMessage(t('recordingMessage'))
     } catch (error) {
       setRideState(hasUnsavedRide ? 'paused' : 'ready')
-      setMessage(error instanceof Error ? error.message : '位置情報を開始できませんでした')
+      setMessage(error instanceof Error ? error.message : t('startLocationFailed'))
     }
-  }, [applyDraft, hasUnsavedRide, stopUpdates])
+  }, [applyDraft, beginBackgroundUpdates, hasUnsavedRide, plan, stopUpdates, t])
 
   const pause = useCallback(async () => {
     try {
@@ -130,69 +169,78 @@ export function useRideRecorder(session: Session | null) {
       }
       setSpeedKmh(0)
       setRideState('paused')
-      setMessage('記録を一時停止しています')
+      setMessage(t('pausedMessage'))
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '一時停止できませんでした')
+      setMessage(error instanceof Error ? error.message : t('pauseFailed'))
     }
-  }, [applyDraft, stopUpdates])
+  }, [applyDraft, stopUpdates, t])
 
-  const getAccountId = useCallback(async () => {
-    if (!session?.user.id) return null
-    const { data, error } = await supabase.from('users').select('account_id').eq('id', session.user.id).maybeSingle()
-    if (error) throw error
-    return data?.account_id ?? null
-  }, [session])
-
-  const saveRun = useCallback(async (ride: RideDraft) => {
-    if (ride.points.length < 2) throw new Error('保存に必要な位置情報が不足しています')
-    const accountId = await getAccountId()
-    if (!accountId) throw new Error('アカウント情報を確認できません')
+  const queueRun = useCallback(async (ride: RideDraft, name: string) => {
+    if (ride.points.length < 2) throw new Error(t('insufficientPoints'))
+    if (!userId) throw new Error(t('accountUnavailable'))
     const endedAt = Date.now()
-    const date = new Date(endedAt)
-    const name = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} 実走`
-    const { error } = await supabase.from('runs').insert({
-      account_id: accountId,
-      name,
-      started_at: new Date(ride.startedAt).toISOString(),
-      ended_at: new Date(endedAt).toISOString(),
-      distance_m: Math.round(totalDistance(ride.points)),
-      duration_s: Math.max(1, Math.round(elapsedMilliseconds(ride, endedAt) / 1000)),
-      geojson: { type: 'LineString', coordinates: ride.points.map((point) => [point.longitude, point.latitude]) },
-      polyline: encodePolyline(ride.points),
-    })
-    if (error) throw error
-  }, [getAccountId])
+    await enqueuePendingRide(createPendingRide(ride, userId, name, endedAt))
+  }, [t, userId])
 
-  const finishAndSave = useCallback(async () => {
+  const finishAndSave = useCallback(async (name: string) => {
     setRideState('saving')
-    setMessage('実走ログを保存しています…')
+    setMessage(t('savingMessage'))
     try {
       await stopUpdates()
       const stored = await loadRideDraft()
-      if (!stored) throw new Error('端末内の走行データが見つかりません')
+      if (!stored) throw new Error(t('localRideMissing'))
       const finished = pauseRideDraft(stored)
       await saveRideDraft(finished)
       applyDraft(finished)
-      await saveRun(finished)
+      await queueRun(finished, name)
       await clearRideDraft()
       setHasUnsavedRide(false)
       setRideState('finished')
       setSpeedKmh(0)
-      setMessage('実走ログをSupabaseへ保存しました')
+      setIsSyncing(true)
+      if (userId) await syncPendingRides(userId)
+      const remaining = await pendingRideCount(userId ?? '')
+      setPendingCount(remaining)
+      setIsSyncing(false)
+      setMessage(remaining > 0 ? t('queuedMessage') : t('syncedMessage'))
     } catch (error) {
+      setIsSyncing(false)
       setHasUnsavedRide(true)
       setRideState('finished')
-      setMessage(`保存できませんでした。端末内データは保持しています：${error instanceof Error ? error.message : '不明なエラー'}`)
+      setMessage(t('saveFailed', { error: error instanceof Error ? error.message : t('unknownError') }))
     }
-  }, [applyDraft, saveRun, stopUpdates])
+  }, [applyDraft, queueRun, stopUpdates, t, userId])
+
+  const addPhoto = useCallback(async (photo: RidePhotoDraft) => {
+    const updated = await appendRidePhoto(photo)
+    if (!updated) throw new Error(t('localRideMissing'))
+    applyDraft(updated)
+  }, [applyDraft, t])
+
+  const discardRide = useCallback(async () => {
+    try {
+      await stopUpdates()
+      const stored = await loadRideDraft()
+      await clearRideDraft()
+      await removeRidePhotoFiles(stored?.photos)
+      setDraft(null)
+      setElapsedSeconds(0)
+      setSpeedKmh(0)
+      setHasUnsavedRide(false)
+      setRideState('ready')
+      setMessage(t('readyMessage'))
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : t('discardFailed'))
+    }
+  }, [stopUpdates, t])
 
   const resetFinishedRide = useCallback(() => {
     setDraft(null)
     setElapsedSeconds(0)
     setSpeedKmh(0)
     setRideState('ready')
-    setMessage('開始するとバックグラウンド記録を始めます')
-  }, [])
+    setMessage(t('readyMessage'))
+  }, [t])
 
   return {
     rideState,
@@ -203,9 +251,14 @@ export function useRideRecorder(session: Session | null) {
     message,
     hasUnsavedRide,
     permissionIssue,
+    pendingCount,
+    isSyncing,
+    syncNow,
     start,
     pause,
     finishAndSave,
+    addPhoto,
+    discardRide,
     resetFinishedRide,
   }
 }

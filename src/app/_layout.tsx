@@ -2,10 +2,11 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AuthProvider, useAuth } from '@/auth'
+import { I18nProvider } from '@/i18n'
 import '@/background-location'
 
 export default function RootLayout() {
-  return <AuthProvider><RootNavigator /><StatusBar style="dark" /></AuthProvider>
+  return <I18nProvider><AuthProvider><RootNavigator /><StatusBar style="dark" /></AuthProvider></I18nProvider>
 }
 
 function RootNavigator() {

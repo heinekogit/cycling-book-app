@@ -5,12 +5,30 @@ export type TrackPoint = {
   timestamp: number
 }
 
+export type RidePhotoDraft = {
+  id: string
+  originalUri: string
+  thumbnailUri: string
+  takenAt: string
+  latitude: number
+  longitude: number
+  mimeType: string
+  width: number | null
+  height: number | null
+}
+
 export type RideDraft = {
   startedAt: number
   activeStartedAt: number | null
   elapsedBeforeCurrentMs: number
   points: TrackPoint[]
   currentPoint: TrackPoint | null
+  photos?: RidePhotoDraft[]
+  plan?: {
+    routeId: string
+    routeName: string
+    coordinates: { latitude: number; longitude: number }[]
+  } | null
 }
 
 export const MAX_ACCURACY_METERS = 50
