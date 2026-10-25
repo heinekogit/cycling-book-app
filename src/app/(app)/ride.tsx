@@ -119,13 +119,17 @@ export default function RideScreen() {
     void finishAndSave(name)
   }
 
-  const takePhoto = async () => {
+  const takePhoto = async (source: 'camera' | 'test-library' = 'camera') => {
     if (!currentPoint || isCapturingPhoto) return
     setIsCapturingPhoto(true)
     try {
-      const photo = await captureRidePhoto(currentPoint)
+      const photo = await captureRidePhoto(currentPoint, source)
       if (!photo) return
       await addPhoto(photo)
+      if (source === 'test-library') {
+        Alert.alert(t('photoSaved'))
+        return
+      }
       try {
         const savedToLibrary = await saveRidePhotoToDeviceLibrary(photo.originalUri)
         Alert.alert(t(savedToLibrary ? 'photoSavedToLibrary' : 'photoSaved'))
@@ -221,6 +225,7 @@ export default function RideScreen() {
         <Text style={styles.account} numberOfLines={1}>{session?.user.email}</Text>
         <View style={styles.metrics}><View style={[styles.metric, styles.metricWide]}><Text style={styles.metricLabel}>{t('elapsedTime')}</Text><Text style={styles.metricValue}>{formatTime(elapsedSeconds)}</Text></View><View style={styles.metric}><Text style={styles.metricLabel}>{t('distance')}</Text><Text style={styles.metricValue}>{(distanceMeters / 1000).toFixed(2)}<Text style={styles.unit}> km</Text></Text></View><View style={styles.metric}><Text style={styles.metricLabel}>{t('speed')}</Text><Text style={styles.metricValue}>{speedKmh.toFixed(1)}<Text style={styles.unit}> km/h</Text></Text></View></View>
         <Pressable style={[styles.captureButton, (!canFinish || !currentPoint || isCapturingPhoto) && styles.disabled]} disabled={!canFinish || !currentPoint || isCapturingPhoto} onPress={() => { void takePhoto() }}><Text style={styles.captureButtonText}>📷　{isCapturingPhoto ? t('takingPhoto') : t('takePhoto')}{(draft?.photos?.length ?? 0) > 0 ? ` (${draft?.photos?.length})` : ''}</Text></Pressable>
+        {__DEV__ && <Pressable style={[styles.captureButton, (!canFinish || !currentPoint || isCapturingPhoto) && styles.disabled]} disabled={!canFinish || !currentPoint || isCapturingPhoto} onPress={() => { void takePhoto('test-library') }}><Text style={styles.captureButtonText}>{t('chooseTestPhoto')}</Text></Pressable>}
         <View style={styles.actions}>
           {isRecording
             ? <Pressable style={[styles.action, styles.pause]} onPress={pause}><Text style={styles.actionText}>Ⅱ　{t('pause')}</Text></Pressable>

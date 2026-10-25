@@ -52,7 +52,7 @@ const ja = {
   elevationCurrentPosition: '現在地', plannedElevation: '予定ルートの標高図', hideElevation: '閉じる ▾', showElevation: '表示する ▴', loadingElevation: '標高を読み込み中…', elevationUnavailable: '標高を取得できませんでした', retryElevation: '再試行',
   elevationProfile: '標高データ', averageGrade: '平均勾配',
   hasPhotos: '写真あり', photoViewer: '写真表示', photoCount: '{{current}} / {{total}}', close: '閉じる', sharePhoto: 'SNSへ共有', sharingPhoto: '共有準備中…', sharePhotoFailed: '写真の共有画面を開けませんでした',
-  takePhoto: '写真を撮る', takingPhoto: '写真を処理中…', photoSaved: '写真を位置情報とともに保存しました', photoCaptureFailed: '写真を保存できませんでした', photoTooLarge: '写真は1枚20MB以下にしてください。長辺1600～2400px・1～3MB程度を推奨します。', cameraPermissionRequired: '撮影するにはカメラの使用を許可してください', openPhotoAtLocation: 'この地点の写真を開く',
+  takePhoto: '写真を撮る', chooseTestPhoto: '開発用：写真ライブラリから選択', takingPhoto: '写真を処理中…', photoSaved: '写真を位置情報とともに保存しました', photoCaptureFailed: '写真を保存できませんでした', photoTooLarge: '写真は1枚20MB以下にしてください。長辺1600～2400px・1～3MB程度を推奨します。', cameraPermissionRequired: '撮影するにはカメラの使用を許可してください', openPhotoAtLocation: 'この地点の写真を開く',
   actualTrack: '実走', offRoute: '逸脱', offRouteWarningTitle: 'ルートを外れています', offRouteWarningBody: '青い予定ルートへ戻ってください',
 } as const
 
@@ -104,7 +104,7 @@ const en: Record<TranslationKey, string> = {
   elevationCurrentPosition: 'You are here', plannedElevation: 'Planned route elevation', hideElevation: 'Hide ▾', showElevation: 'Show ▴', loadingElevation: 'Loading elevation…', elevationUnavailable: 'Elevation unavailable', retryElevation: 'Retry',
   elevationProfile: 'Elevation', averageGrade: 'Average grade',
   hasPhotos: 'Has photos', photoViewer: 'Photo viewer', photoCount: '{{current}} / {{total}}', close: 'Close', sharePhoto: 'Share to social media', sharingPhoto: 'Preparing…', sharePhotoFailed: 'Could not open the photo sharing sheet',
-  takePhoto: 'Take photo', takingPhoto: 'Processing photo…', photoSaved: 'Photo saved with its location', photoCaptureFailed: 'Could not save the photo', photoTooLarge: 'Photos must be 20 MB or smaller. A long edge of 1600–2400 px and 1–3 MB is recommended.', cameraPermissionRequired: 'Allow camera access to take photos', openPhotoAtLocation: 'Open the photo taken here',
+  takePhoto: 'Take photo', chooseTestPhoto: 'Development: choose a library photo', takingPhoto: 'Processing photo…', photoSaved: 'Photo saved with its location', photoCaptureFailed: 'Could not save the photo', photoTooLarge: 'Photos must be 20 MB or smaller. A long edge of 1600–2400 px and 1–3 MB is recommended.', cameraPermissionRequired: 'Allow camera access to take photos', openPhotoAtLocation: 'Open the photo taken here',
   actualTrack: 'Actual', offRoute: 'Off route', offRouteWarningTitle: 'You are off the route', offRouteWarningBody: 'Return to the blue planned route',
 }
 

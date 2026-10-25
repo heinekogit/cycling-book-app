@@ -17,10 +17,15 @@ function extensionFor(asset: ImagePicker.ImagePickerAsset) {
   return 'jpg'
 }
 
-export async function captureRidePhoto(point: TrackPoint): Promise<RidePhotoDraft | null> {
-  const permission = await ImagePicker.requestCameraPermissionsAsync()
-  if (!permission.granted) throw new Error('camera-permission')
-  const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9, exif: false })
+export async function captureRidePhoto(point: TrackPoint, source: 'camera' | 'test-library' = 'camera'): Promise<RidePhotoDraft | null> {
+  if (source === 'test-library' && !__DEV__) throw new Error('test-library-unavailable')
+  if (source === 'camera') {
+    const permission = await ImagePicker.requestCameraPermissionsAsync()
+    if (!permission.granted) throw new Error('camera-permission')
+  }
+  const result = source === 'camera'
+    ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.9, exif: false })
+    : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: false, quality: 1, preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Current })
   if (result.canceled || !result.assets[0]) return null
   const asset = result.assets[0]
   const id = Crypto.randomUUID()
