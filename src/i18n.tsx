@@ -25,6 +25,7 @@ const ja = {
   privacyUnfilteredNote: "除外設定がオフです。ホーム地点付近を含む軌跡・写真・マーカーが公開されます。",
   privacySummary: "公開距離 {{distance}} km／非公開の写真 {{photos}} 枚・マーカー {{markers}} 件",
 
+  settings: '設定', saveToDeviceLibrary: '端末の写真ライブラリにも保存する', saveToDeviceLibraryHelp: '初期値はオフ。オンにすると、以後の実走中に撮った写真を撮影直後に写真アプリにも保存します。Cycling Bookへの保存と同期はそのまま続きます。', photoLibraryPermissionDenied: '写真ライブラリへの追加が許可されていません。端末の設定で許可すると利用できます。', photoLibrarySettingFailed: '設定を保存できませんでした。もう一度お試しください。', photoSavedToLibrary: '写真をCycling Bookと端末の写真ライブラリに保存しました。', photoLibrarySaveFailed: '写真はCycling Bookに保存しましたが、端末の写真ライブラリには保存できませんでした。端末の設定を確認してください。',
   languageName: '日本語', switchLanguage: 'EN', rideRecord: '実走記録', history: '履歴', signOut: 'ログアウト',
   accuracyPoints: '精度 ±{{accuracy}}m・記録 {{points}}点', waitingForLocation: '位置情報待ち', openSettings: 'iPhoneの設定を開く',
   elapsedTime: '経過時間', distance: '距離', speed: '速度', duration: '時間', rideDuration: '走行時間', averageSpeed: '平均速度',
@@ -76,6 +77,7 @@ const en: Record<TranslationKey, string> = {
   privacyUnfilteredNote: "Filtering is off. The track, photos and markers near home will be published.",
   privacySummary: "Public distance {{distance}} km / Hidden photos: {{photos}}; markers: {{markers}}",
 
+  settings: 'Settings', saveToDeviceLibrary: 'Also save to device photo library', saveToDeviceLibraryHelp: 'Off by default. When enabled, new ride photos are saved to the device photo library immediately after capture. Cycling Book storage and sync continue as usual.', photoLibraryPermissionDenied: 'Adding photos to the device library is not allowed. Enable it in device settings to use this option.', photoLibrarySettingFailed: 'Could not save this setting. Try again.', photoSavedToLibrary: 'Photo saved to Cycling Book and the device photo library.', photoLibrarySaveFailed: 'Photo saved to Cycling Book, but not to the device photo library. Check device settings.',
   languageName: 'English', switchLanguage: '日本語', rideRecord: 'Ride Recording', history: 'History', signOut: 'Log out',
   accuracyPoints: 'Accuracy ±{{accuracy}}m · {{points}} points', waitingForLocation: 'Waiting for location', openSettings: 'Open iPhone Settings',
   elapsedTime: 'Elapsed', distance: 'Distance', speed: 'Speed', duration: 'Time', rideDuration: 'Ride time', averageSpeed: 'Avg. speed',

@@ -54,6 +54,14 @@
       "expo-sqlite",
       "expo-sharing",
       [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "savePhotosPermission": "撮影した写真を端末の写真ライブラリにも保存するために使用します。",
+          "granularPermissions": ["photo"]
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "cameraPermission": "実走中の写真を撮影し、走行地点とともに保存するためカメラを使用します。",

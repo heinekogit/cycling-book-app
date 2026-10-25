@@ -20,6 +20,7 @@ import { fetchSavedRoute } from '@/lib/saved-routes'
 import { distanceToRouteMeters, routeProgressMeters, OFF_ROUTE_THRESHOLD_METERS, splitTrackByRoute } from '@/lib/route-following'
 import { ROUTE_LINE_COLOR, RouteDirectionArrows } from '@/route-direction-arrows'
 import { captureRidePhoto } from '@/lib/ride-photo-capture'
+import { saveRidePhotoToDeviceLibrary } from '@/lib/device-photo-library'
 
 const DEFAULT_REGION: Region = { latitude: 35.681236, longitude: 139.767125, latitudeDelta: 0.03, longitudeDelta: 0.03 }
 const MAP_FOLLOW_RESUME_DELAY_MS = 10_000
@@ -125,7 +126,12 @@ export default function RideScreen() {
       const photo = await captureRidePhoto(currentPoint)
       if (!photo) return
       await addPhoto(photo)
-      Alert.alert(t('photoSaved'))
+      try {
+        const savedToLibrary = await saveRidePhotoToDeviceLibrary(photo.originalUri)
+        Alert.alert(t(savedToLibrary ? 'photoSavedToLibrary' : 'photoSaved'))
+      } catch {
+        Alert.alert(t('photoLibrarySaveFailed'))
+      }
     } catch (error) {
       Alert.alert(error instanceof Error && error.message === 'camera-permission' ? t('cameraPermissionRequired') : error instanceof Error && error.message === 'photo-too-large' ? t('photoTooLarge') : t('photoCaptureFailed'))
     } finally {
