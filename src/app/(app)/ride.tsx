@@ -127,7 +127,7 @@ export default function RideScreen() {
       await addPhoto(photo)
       Alert.alert(t('photoSaved'))
     } catch (error) {
-      Alert.alert(error instanceof Error && error.message === 'camera-permission' ? t('cameraPermissionRequired') : t('photoCaptureFailed'))
+      Alert.alert(error instanceof Error && error.message === 'camera-permission' ? t('cameraPermissionRequired') : error instanceof Error && error.message === 'photo-too-large' ? t('photoTooLarge') : t('photoCaptureFailed'))
     } finally {
       setIsCapturingPhoto(false)
     }

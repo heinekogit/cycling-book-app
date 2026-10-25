@@ -6,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker'
 import type { RidePhotoDraft, TrackPoint } from '@/lib/ride'
 
 const PHOTO_DIRECTORY = `${FileSystem.documentDirectory}ride-photos`
+const MAX_RIDE_PHOTO_BYTES = 20 * 1024 * 1024
 
 function extensionFor(asset: ImagePicker.ImagePickerAsset) {
   const fromName = asset.fileName?.match(/\.([a-zA-Z0-9]+)$/)?.[1]?.toLowerCase()
@@ -29,6 +30,8 @@ export async function captureRidePhoto(point: TrackPoint): Promise<RidePhotoDraf
   const thumbnailUri = `${PHOTO_DIRECTORY}/${id}-thumb.jpg`
   try {
     await FileSystem.copyAsync({ from: asset.uri, to: originalUri })
+    const originalInfo = await FileSystem.getInfoAsync(originalUri)
+    if (originalInfo.exists && 'size' in originalInfo && originalInfo.size > MAX_RIDE_PHOTO_BYTES) throw new Error('photo-too-large')
     const thumbnail = await ImageManipulator.manipulateAsync(asset.uri, [{ resize: { width: 480 } }], { compress: 0.76, format: ImageManipulator.SaveFormat.JPEG })
     await FileSystem.copyAsync({ from: thumbnail.uri, to: thumbnailUri })
     return { id, originalUri, thumbnailUri, takenAt: new Date().toISOString(), latitude: point.latitude, longitude: point.longitude, mimeType: asset.mimeType || 'image/jpeg', width: asset.width || null, height: asset.height || null }

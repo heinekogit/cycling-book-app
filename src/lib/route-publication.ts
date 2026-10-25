@@ -28,7 +28,7 @@ export async function setRoutePublication(routeId: string, makePublic: boolean, 
     filtered_distance_m: preview?.publicDistanceM ?? null,
     hidden_photo_ids: preview?.hiddenPhotoIds ?? [], hidden_marker_ids: preview?.hiddenMarkerIds ?? [],
   })
-  if (error) throw error
+  if (error) throw new Error(error.message.includes('free_public_route_limit_reached') ? t('publicRouteLimitReached') : error.message)
   const updated = Array.isArray(data) ? data[0] : data
   if (!updated || String(updated.id) !== routeId || updated.is_public !== makePublic) throw new Error(t('updateFailed'))
 }
