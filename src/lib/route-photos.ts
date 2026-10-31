@@ -25,7 +25,7 @@ async function signedUrl(url: string | null) {
 }
 
 export async function fetchRoutePhotos(routeId: string) {
-  const { data, error } = await supabase.from('route_spot_photos').select('id,image_url,thumb_url,public_image_url,is_publicly_selected,taken_at,lat,lng,marker_id,is_privacy_hidden').eq('route_id', routeId).order('sort_order', { ascending: true }).order('taken_at', { ascending: true })
+  const { data, error } = await supabase.from('route_spot_photos').select('id,image_url,thumb_url,public_image_url,is_publicly_selected,taken_at,lat,lng,marker_id,is_privacy_hidden').eq('route_id', routeId).is('deleted_at', null).order('sort_order', { ascending: true }).order('taken_at', { ascending: true })
   if (error) throw error
   return Promise.all((data ?? []).map(async (photo) => {
     const displayPath = photo.is_publicly_selected ? photo.public_image_url : photo.image_url
