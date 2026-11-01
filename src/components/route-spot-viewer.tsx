@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { useI18n } from '@/i18n'
 import type { RouteSpot } from '@/lib/route-spots'
 
@@ -13,15 +13,17 @@ function SpotImage({ uri }: { uri: string }) {
 export function RouteSpotViewer({ spot, onClose }: { spot: RouteSpot | null; onClose: () => void }) {
   const { t } = useI18n()
   return <Modal visible={spot !== null} animationType="slide" onRequestClose={onClose}>
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}><Text style={styles.title}>{t('routeSpot')}</Text><Pressable accessibilityRole="button" onPress={onClose} style={styles.close}><Text style={styles.closeText}>{t('close')}</Text></Pressable></View>
-      <ScrollView contentContainerStyle={styles.content}>
-        {spot?.isPrivacyHidden && <Text style={styles.note}>{t('spotPrivate')}</Text>}
-        {!!spot?.comment && <Text selectable style={styles.comment}>{spot.comment}</Text>}
-        {!spot?.comment && !spot?.photos.length && <Text style={styles.note}>{t('spotEmpty')}</Text>}
-        {spot?.photos.map((photo) => <View key={photo.id}><SpotImage key={photo.imageUrl} uri={photo.imageUrl} />{photo.isPrivacyHidden && !spot.isPrivacyHidden && <Text style={styles.note}>{t('spotPrivate')}</Text>}</View>)}
-      </ScrollView>
-    </SafeAreaView>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.header}><Text style={styles.title}>{t('routeSpot')}</Text><Pressable accessibilityRole="button" onPress={onClose} style={styles.close}><Text style={styles.closeText}>{t('close')}</Text></Pressable></View>
+        <ScrollView contentContainerStyle={styles.content}>
+          {spot?.isPrivacyHidden && <Text style={styles.note}>{t('spotPrivate')}</Text>}
+          {!!spot?.comment && <Text selectable style={styles.comment}>{spot.comment}</Text>}
+          {!spot?.comment && !spot?.photos.length && <Text style={styles.note}>{t('spotEmpty')}</Text>}
+          {spot?.photos.map((photo) => <View key={photo.id}><SpotImage key={photo.imageUrl} uri={photo.imageUrl} />{photo.isPrivacyHidden && !spot.isPrivacyHidden && <Text style={styles.note}>{t('spotPrivate')}</Text>}</View>)}
+        </ScrollView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   </Modal>
 }
 
