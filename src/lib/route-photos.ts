@@ -25,12 +25,13 @@ async function signedUrl(url: string | null) {
 }
 
 export async function fetchRoutePhotos(routeId: string) {
-  const { data, error } = await supabase.from('route_spot_photos').select('id,image_url,thumb_url,taken_at,lat,lng,marker_id,is_privacy_hidden').eq('route_id', routeId).order('sort_order', { ascending: true }).order('taken_at', { ascending: true })
+  const { data, error } = await supabase.from('route_spot_photos').select('id,image_url,thumb_url,public_image_url,is_publicly_selected,taken_at,lat,lng,marker_id,is_privacy_hidden').eq('route_id', routeId).is('deleted_at', null).order('sort_order', { ascending: true }).order('taken_at', { ascending: true })
   if (error) throw error
   return Promise.all((data ?? []).map(async (photo) => {
-    const imageUrl = await signedUrl(photo.image_url)
-    const thumbUrl = await signedUrl(photo.thumb_url)
-    return { markerId: photo.marker_id == null ? null : String(photo.marker_id), isPrivacyHidden: photo.is_privacy_hidden === true, id: String(photo.id), imageUrl: imageUrl || photo.image_url, thumbUrl: thumbUrl || imageUrl, takenAt: photo.taken_at, latitude: finiteCoordinate(photo.lat, 90), longitude: finiteCoordinate(photo.lng, 180) } satisfies RoutePhoto
+    const displayPath = photo.is_publicly_selected ? photo.public_image_url : photo.image_url
+    const imageUrl = await signedUrl(displayPath)
+    const thumbUrl = photo.is_publicly_selected ? imageUrl : await signedUrl(photo.thumb_url)
+    return { markerId: photo.marker_id == null ? null : String(photo.marker_id), isPrivacyHidden: photo.is_privacy_hidden === true, id: String(photo.id), imageUrl: imageUrl || displayPath || '', thumbUrl: thumbUrl || imageUrl, takenAt: photo.taken_at, latitude: finiteCoordinate(photo.lat, 90), longitude: finiteCoordinate(photo.lng, 180) } satisfies RoutePhoto
   }))
 }
 
