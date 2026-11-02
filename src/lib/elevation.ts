@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { elevationChangeMeters } from '@/lib/elevation-metrics'
 
 export type ElevationCoordinate = { latitude: number; longitude: number }
 export type StoredElevationProfile = { version: 1; distances_m: number[]; elevations_m: number[] }
@@ -16,10 +17,9 @@ function calculate(points: ElevationCoordinate[], elevations: number[]): Elevati
   const smoothed = elevations.map((_value, index) => { const slice = elevations.slice(Math.max(0, index - 2), Math.min(elevations.length, index + 3)); return slice.reduce((sum, value) => sum + value, 0) / slice.length })
   const distances = [0]
   for (let index = 1; index < points.length; index += 1) distances.push(distances[index - 1] + distance(points[index - 1], points[index]))
-  let gain = 0; let loss = 0
-  for (let index = 1; index < smoothed.length; index += 1) { const change = smoothed[index] - smoothed[index - 1]; if (change > .5) gain += change; else if (change < -.5) loss -= change }
+  const { gain, loss } = elevationChangeMeters(smoothed)
   const totalDistance = distances.at(-1) || 0
-  return { distances, elevations: smoothed, gain: Math.round(gain), loss: Math.round(loss), minimum: Math.round(Math.min(...smoothed)), maximum: Math.round(Math.max(...smoothed)), averageGrade: totalDistance ? gain / totalDistance * 100 : 0 }
+  return { distances, elevations: smoothed, gain, loss, minimum: Math.round(Math.min(...smoothed)), maximum: Math.round(Math.max(...smoothed)), averageGrade: totalDistance ? gain / totalDistance * 100 : 0 }
 }
 
 export function elevationProfileFromRecord(record: ElevationRecord | null | undefined) {
@@ -27,9 +27,9 @@ export function elevationProfileFromRecord(record: ElevationRecord | null | unde
   if (!value || value.version !== 1 || !Array.isArray(value.distances_m) || !Array.isArray(value.elevations_m) || value.distances_m.length < 2 || value.distances_m.length !== value.elevations_m.length) return null
   const distances = value.distances_m.map(Number); const elevations = value.elevations_m.map(Number)
   if (!distances.every(Number.isFinite) || !elevations.every(Number.isFinite)) return null
-  let calculatedGain = 0; let calculatedLoss = 0
-  for (let index = 1; index < elevations.length; index += 1) { const change = elevations[index] - elevations[index - 1]; if (change > .5) calculatedGain += change; else if (change < -.5) calculatedLoss -= change }
-  const gain = record?.elevation_gain_m ?? Math.round(calculatedGain); const loss = record?.elevation_loss_m ?? Math.round(calculatedLoss)
+  // The stored profile is the source of truth. Older runs may have zero totals
+  // because per-point thresholds discarded gradual climbs after interpolation.
+  const { gain, loss } = elevationChangeMeters(elevations)
   const minimum = record?.elevation_min_m ?? Math.round(Math.min(...elevations)); const maximum = record?.elevation_max_m ?? Math.round(Math.max(...elevations)); const total = distances.at(-1) || 0
   return { distances, elevations, gain, loss, minimum, maximum, averageGrade: total ? gain / total * 100 : 0 } satisfies ElevationProfile
 }
