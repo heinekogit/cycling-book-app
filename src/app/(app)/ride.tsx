@@ -4,8 +4,9 @@ import { RouteSpotViewer } from '@/components/route-spot-viewer'
 import { useRouteSpots } from '@/hooks/use-route-spots'
 import type { RouteSpot } from '@/lib/route-spots'
 import * as Linking from 'expo-linking'
-import { type Href, router, useLocalSearchParams } from 'expo-router'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useKeepAwake } from 'expo-keep-awake'
+import { type Href, router, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, type Region } from 'react-native-maps'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -23,9 +24,16 @@ import { captureRidePhoto } from '@/lib/ride-photo-capture'
 import { saveRidePhotoToDeviceLibrary } from '@/lib/device-photo-library'
 
 const DEFAULT_REGION: Region = { latitude: 35.681236, longitude: 139.767125, latitudeDelta: 0.03, longitudeDelta: 0.03 }
+// About 500 m from the map center to its top edge at the current latitude.
+const RIDE_MAP_LATITUDE_DELTA = 1_000 / 111_320
 const MAP_FOLLOW_RESUME_DELAY_MS = 10_000
 const MAP_FOLLOW_RESUME_SPEED_KMH = 5
 const formatTime = (seconds: number) => [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60].map((value) => String(value).padStart(2, '0')).join(':')
+
+function KeepRideScreenAwake() {
+  useKeepAwake()
+  return null
+}
 
 export default function RideScreen() {
   const { t } = useI18n()
@@ -85,8 +93,15 @@ export default function RideScreen() {
 
   useEffect(() => {
     if (!draft?.currentPoint || !isMapFollowing) return
-    mapRef.current?.animateCamera({ center: draft.currentPoint, zoom: 17 }, { duration: 500 })
-  }, [draft?.currentPoint, isMapFollowing])
+    const latitude = draft.currentPoint.latitude
+    const longitudeDelta = RIDE_MAP_LATITUDE_DELTA * (mapSize.width && mapSize.height ? mapSize.width / mapSize.height : 0.5) / Math.max(0.2, Math.cos(latitude * Math.PI / 180))
+    mapRef.current?.animateToRegion({
+      latitude,
+      longitude: draft.currentPoint.longitude,
+      latitudeDelta: RIDE_MAP_LATITUDE_DELTA,
+      longitudeDelta,
+    }, 500)
+  }, [draft?.currentPoint, isMapFollowing, mapSize.width, mapSize.height])
 
   useEffect(() => {
     if (popupSpot || selectedSpot || isMapFollowing || speedKmh < MAP_FOLLOW_RESUME_SPEED_KMH) return
@@ -168,11 +183,17 @@ export default function RideScreen() {
   const liveSegments = useMemo(() => splitTrackByRoute(track, plannedTrack), [plannedTrack, track])
   const isOffRoute = useMemo(() => Boolean(currentPoint && plannedTrack.length > 1 && distanceToRouteMeters(currentPoint, plannedTrack) > OFF_ROUTE_THRESHOLD_METERS), [currentPoint, plannedTrack])
   const isRecording = rideState === 'riding'
+  const [isScreenFocused, setIsScreenFocused] = useState(false)
+  useFocusEffect(useCallback(() => {
+    setIsScreenFocused(true)
+    return () => setIsScreenFocused(false)
+  }, []))
   const isBusy = rideState === 'locating' || rideState === 'saving' || isRouteLoading
   const cannotStartRoute = !!routeId && !selectedRoute && !draft?.plan
   const canFinish = ['riding', 'paused', 'finished'].includes(rideState) && hasUnsavedRide
 
   return <View style={styles.screen}>
+    {isRecording && isScreenFocused && <KeepRideScreenAwake />}
     <MapView ref={mapRef} onRegionChangeComplete={setArrowRegion} onLayout={(event) => { const { width, height } = event.nativeEvent.layout; setMapSize({ width, height }) }} style={StyleSheet.absoluteFill} provider={PROVIDER_DEFAULT} initialRegion={DEFAULT_REGION} showsCompass showsScale onPress={() => { setPopupSpot(null); setLastMapInteractionAt(Date.now()) }} onTouchStart={suspendMapFollowing} onPanDrag={suspendMapFollowing}>
       {plannedTrack.length > 1 && <><Polyline coordinates={plannedTrack} strokeColor={ROUTE_LINE_COLOR} strokeWidth={6} /><RouteDirectionArrows coordinates={plannedTrack} viewport={arrowViewport} /></>}
       {liveSegments.map((segment, index) => segment.isOffRoute
